@@ -1,0 +1,856 @@
+meta:
+  sos_version: v0.0.1
+  system_name: vtp-synthesis
+  system_version: v0.0.1
+  system_internal: internal
+  system_description: Digital Intelligence to Synthesize Digital Intelligence
+  profile: default
+
+namespace:
+  git_root: https://github.com
+  git_org: vtp-one
+  git_branch: v0.0.1
+
+  web_resources_volume: vtp-synthesis_web-resources
+
+  run_buildx: True
+
+  ollama_data: null
+  chromadb_data: null
+  mongodb_data: null
+
+  ollama_models:
+    - "nomic-embed-text:latest"
+    - "dolphin-llama3:8b-256k-v2.9-q8_0"
+
+  builder:
+    git_target: vtp-synthesis-builder
+    branch_target: ${namespace.git_branch}
+    working_dir: null
+    exists:
+      label: builder working dir exists
+      ctx_key: namespace.builder.working_dir
+      valid: null
+      is_inverse: True
+      raise_exc: False
+
+  toolkit:
+    git_target: vtp-synthesis-toolkit
+    branch_target: ${namespace.git_branch}
+    working_dir: null
+    host: 0.0.0.0
+    port: "42024"
+    exists:
+      label: toolkit working dir exists
+      ctx_key: namespace.toolkit.working_dir
+      valid: null
+      is_inverse: True
+      raise_exc: False
+
+  frontend:
+    git_target: vtp-synthesis-frontend
+    branch_target: ${namespace.git_branch}
+    working_dir: null
+    host: 0.0.0.0
+    port: "30000"
+    exists:
+      label: frontend working dir exists
+      ctx_key: namespace.frontend.working_dir
+      valid: null
+      is_inverse: True
+      raise_exc: False
+
+service:
+  dev_mode: True
+
+  local_data: True
+
+  ollama: True
+
+  chromadb: True
+
+  mongodb: True
+
+action:
+  sos_help:
+    label: print help
+    tool: terminal.print_object
+    params:
+      horizontal_rule: True
+      obj:
+        - VTP-SYNTHESIS: ${meta.system_description}
+        - Install:
+          - sos-toolkit setup
+          - sos-toolkit install
+        - Dev:
+          - sos-toolkit setup
+          - sos-toolkit dev
+          - sos-toolkit build
+        - Run:
+          - sos-toolkit up
+        - Stop:
+          - sos-toolkit down
+
+  sos_config:
+    ollama_data:
+      tool: terminal.input_prompt
+      params:
+        prompt: "Set Ollama Data Directory: "
+      result_map:
+        - label: set ollama_data
+          result: namespace.ollama_data
+          data: input
+      callbacks:
+        - ${action.set_ollama_data}
+
+    chromadb_data:
+      tool: terminal.input_prompt
+      params:
+        prompt: "Set ChromaDB Data Directory: "
+      result_map:
+        - label: set chromadb_data
+          result: namespace.chromadb_data
+          data: input
+      callbacks:
+        - ${action.set_chromadb_data}
+
+    mongodb_data:
+      tool: terminal.input_prompt
+      params:
+        prompt: "Set MongoDB Data Directory: "
+      result_map:
+        - label: set mongodb_data
+          result: namespace.mongodb_data
+          data: input
+      callbacks:
+        - ${action.set_mongodb_data}
+
+  sos_setup:
+    local_data_setup: ${service.local_data.action.setup}
+    ollama_setup: ${service.ollama.action.setup}
+    chromadb_setup: ${service.chromadb.action.setup}
+    mongodb_setup: ${service.mongodb.action.setup}
+
+  sos_install:
+    install_dev:
+      builder: ${action.sos_dev.pull_builder}
+      toolkit: ${action.sos_dev.pull_toolkit}
+      frontend: ${action.sos_dev.pull_frontend}
+      models: ${action.sos_dev.download_models}
+
+    build_dev:
+      builder_bake:
+        ready: ${action.sos_build.builder_ready}
+        build: ${action.sos_build.builder_bake}
+
+    download_models: ${action.download_models}
+
+  sos_dev:
+    dev_enable: ${service.dev_mode.action.enable}
+
+    pull_builder:
+      tool: git.repo_clone
+      context_map:
+        - label: get builder remote target
+          result: remote_target
+          data:
+            - target: root
+              source: namespace.git_root
+            - target: org
+              source: namespace.git_org
+            - target: repo
+              source: namespace.builder.git_target
+          format_string: "{root}/{org}/{repo}.git"
+        - label: get builder branch
+          result: remote_branch
+          data: namespace.builder.branch_target
+        - label: get local target
+          result: local_target
+          data:
+            - source: meta.system_internal
+              target: root
+            - source: null
+              target: local
+              default: builder
+          path_join: True
+      result_map:
+        - label: set output working dir
+          result: namespace.builder.working_dir
+          data: working_dir
+
+    pull_toolkit:
+      tool: git.repo_clone
+      context_map:
+        - label: get toolkit remote target
+          result: remote_target
+          data:
+            - target: root
+              source: namespace.git_root
+            - target: org
+              source: namespace.git_org
+            - target: repo
+              source: namespace.toolkit.git_target
+          format_string: "{root}/{org}/{repo}.git"
+        - label: get toolkit branch
+          result: remote_branch
+          data: namespace.toolkit.branch_target
+        - label: get local target
+          result: local_target
+          data:
+            - source: meta.system_internal
+              target: root
+            - source: null
+              target: local
+              default: toolkit
+          path_join: True
+      result_map:
+        - label: set output working dir
+          result: namespace.toolkit.working_dir
+          data: working_dir
+
+    pull_frontend:
+      tool: git.repo_clone
+      context_map:
+        - label: get frontend remote target
+          result: remote_target
+          data:
+            - target: root
+              source: namespace.git_root
+            - target: org
+              source: namespace.git_org
+            - target: repo
+              source: namespace.frontend.git_target
+          format_string: "{root}/{org}/{repo}.git"
+        - label: get frontend branch
+          result: remote_branch
+          data: namespace.frontend.branch_target
+        - label: get local target
+          result: local_target
+          data:
+            - source: meta.system_internal
+              target: root
+            - source: null
+              target: local
+              default: frontend
+          path_join: True
+      result_map:
+        - label: set output working dir
+          result: namespace.frontend.working_dir
+          data: working_dir
+
+    ollama_data: ${action.set_ollama_data}
+    chromadb_data: ${action.set_chromadb_data}
+    mongodb_data: ${action.set_mongodb_data}
+
+    download_models: ${action.download_models}
+
+  sos_build:
+    dev_mode: ${service.dev_mode.action.is_enabled}
+
+    builder_ready:
+      tool: filesystem.path_exists
+      params:
+        raise_exc: True
+      context_map:
+        - label: get target dirs
+          result: target
+          to_list: True
+          data:
+            - source: namespace.builder.working_dir
+              default: ""
+            - source: namespace.toolkit.working_dir
+              default: ""
+            - source: namespace.frontend.working_dir
+              default: ""
+
+    builder_bake:
+      tool: docker.buildx_bake
+      params:
+        bake_file: bakefile.hcl
+        bake_target: default
+      condition:
+        label: run buildx
+        ctx_key: namespace.run_buildx
+        valid: True
+        is_inverse: False
+        raise_exc: False
+      context_map:
+        - label: get builder working directory
+          result: context_dir
+          data: namespace.builder.working_dir
+        - label: get docker namespace
+          result: namespace
+          data: meta.system_name
+        - label: generate build variables
+          result: variables
+          data:
+            - label: get toolkit working dir
+              result: TOOLKIT_WORKING_DIR
+              data: namespace.toolkit.working_dir
+            - label: get frontend working dir
+              result: FRONTEND_WORKING_DIR
+              data: namespace.frontend.working_dir
+
+  sos_up:
+    ollama_up: ${service.ollama.action.up}
+    chromadb_up: ${service.chromadb.action.up}
+    mongodb_up: ${service.mongodb.action.up}
+
+    web_resources_volume:
+      exists_break:
+        label: check if web-resources volume exists
+        tool: docker.volume_exists
+        context_map:
+          - label: get volume name
+            result: target
+            data: namespace.web_resources_volume
+        result_map:
+          - label: handle result
+            result: __RESULT__
+            data: result
+        callbacks:
+          - label: break if exists
+            tool: context.runtime_break
+            params:
+              info_pass: volume does not exist
+              info_break: volume does exist
+              qualifier: all
+              resolve:
+                - label: check __RESULT__
+                  ctx_key: __RESULT__
+                  valid: True
+                  is_inverse: False
+                  raise_exc: False
+
+      create_volume:
+        label: create web-resources volume
+        tool: docker.volume_create
+        context_map:
+          - label: get volume name
+            result: target
+            data: namespace.web_resources_volume
+
+    compose:
+      tool: docker.compose_up
+      context_map:
+        - label: get profile
+          result: profile
+          data: meta.profile
+        - label: generate compose file target
+          result: file
+          data:
+            - source: meta.system_path
+              target: system_path
+            - target: compose_file
+              default: docker-compose.yaml
+          path_join: True
+        - label: get project name
+          result: project_name
+          data: meta.system_name
+        - label: generate env_map
+          result: env_map
+          data:
+            - target: SYSTEM_NAME
+              source: meta.system_name
+            - target: SYSTEM_VERSION
+              source: meta.system_version
+
+            - target: OLLAMA_PORT
+              source: service.ollama.namespace.port
+            - target: CHROMADB_PORT
+              source: service.chromadb.namespace.port
+            - target: MONGODB_PORT
+              source: service.mongodb.namespace.port
+
+            - target: TOOLKIT_PORT
+              source: namespace.toolkit.port
+            - target: TOOLKIT_HOST
+              source: namespace.toolkit.host
+            - target: TOOLKIT_WORKING_DIR
+              source: namespace.toolkit.working_dir
+              default: /tmp/${meta.system_name}/toolkit
+
+            - target: FRONTEND_PORT
+              source: namespace.frontend.port
+            - target: FRONTEND_WORKING_DIR
+              source: namespace.frontend.working_dir
+              default: /tmp/${meta.system_name}/frontend
+
+    toolkit_address:
+      label: print toolkit address
+      tool: terminal.print_object
+      params:
+        horizontal_rule: True
+      context_map:
+        - label: generate service address
+          result: obj
+          data:
+            - source: null
+              target: preamble
+              default: "SYNTHESIS TOOLKIT RUNNING ON:"
+            - source: namespace.toolkit.host
+              target: host
+            - source: namespace.toolkit.port
+              target: port
+          format_string: "{preamble} http://{host}:{port}"
+
+    frontend_address:
+      label: print frontend address
+      tool: terminal.print_object
+      params:
+        horizontal_rule: True
+      context_map:
+        - label: generate service address
+          result: obj
+          data:
+            - source: null
+              target: preamble
+              default: "SYNTHESIS FRONTEND RUNNING ON:"
+            - source: namespace.frontend.host
+              target: host
+            - source: namespace.frontend.port
+              target: port
+          format_string: "{preamble} http://{host}:{port}"
+
+  sos_down:
+    compose:
+      tool: docker.compose_down
+      context_map:
+        - label: get project name
+          result: project_name
+          data: meta.system_name
+
+    mongodb_down: ${service.mongodb.action.down}
+    chromadb_down: ${service.chromadb.action.down}
+    ollama_down: ${service.ollama.action.down}
+
+  sos_status:
+    root:
+      label: root git status
+      tool: git.repo_status
+      context_map:
+        - label: get working_dir
+          result: working_dir
+          data: meta.system_path
+
+    builder:
+      label: builder git status
+      tool: git.repo_status
+      condition:
+        - ${service.dev_mode.namespace.condition}
+        - ${namespace.builder.exists}
+      context_map:
+        - label: get working_dir
+          result: working_dir
+          data: namespace.builder.working_dir
+
+    toolkit:
+      label: toolkit git status
+      tool: git.repo_status
+      condition:
+        - ${service.dev_mode.namespace.condition}
+        - ${namespace.toolkit.exists}
+      context_map:
+        - label: get working_dir
+          result: working_dir
+          data: namespace.toolkit.working_dir
+
+    frontend:
+      label: frontend git status
+      tool: git.repo_status
+      condition:
+        - ${service.dev_mode.namespace.condition}
+        - ${namespace.frontend.exists}
+      context_map:
+        - label: get working_dir
+          result: working_dir
+          data: namespace.frontend.working_dir
+
+  sos_commit:
+    default:
+      dev_mode: ${service.dev_mode.action.is_enabled_exc}
+      root: ${action.sos_commit.root}
+      builder: ${action.sos_commit.builder}
+      toolkit: ${action.sos_commit.toolkit}
+      frontend: ${action.sos_commit.frontend}
+
+    root:
+      label: root git commit
+      tool: git.repo_commit
+      context_map:
+        - label: get working_dir
+          result: working_dir
+          data: meta.system_path
+
+    builder:
+      label: builder git commit
+      tool: git.repo_commit
+      condition:
+        - ${namespace.builder.exists}
+      context_map:
+        - label: get working_dir
+          result: working_dir
+          data: namespace.builder.working_dir
+
+    toolkit:
+      label: toolkit git commit
+      tool: git.repo_commit
+      condition:
+        - ${namespace.toolkit.exists}
+      context_map:
+        - label: get working_dir
+          result: working_dir
+          data: namespace.toolkit.working_dir
+
+    frontend:
+      label: frontend git commit
+      tool: git.repo_commit
+      condition:
+        - ${namespace.frontend.exists}
+      context_map:
+        - label: get working_dir
+          result: working_dir
+          data: namespace.frontend.working_dir
+
+  sos_clean:
+    system_down: ${action.sos_down}
+
+    web_resources_volume:
+      label: delete web resources volume
+      tool: docker.volume_delete
+      context_map:
+        - label: get volume name
+          result: target
+          data: namespace.web_resources_volume
+
+    frontend_image:
+      image_exists:
+        label: check image exists
+        tool: docker.image_exists
+        context_map:
+          - label: get image tag
+            result: target
+            data:
+              - source: meta.system_name
+                target: namespace
+              - source: meta.system_version
+                target: version
+            format_string: "{namespace}/frontend:{version}"
+        result_map:
+          - label: result to __TARGET__
+            result: __TARGET__
+            data: result
+      delete_image:
+        label: delete image if exists
+        tool: docker.image_delete
+        context_map:
+          - label: get invoke image tag
+            result: target
+            data:
+              - source: meta.system_name
+                target: namespace
+              - source: meta.system_version
+                target: version
+            format_string: "{namespace}/frontend:{version}"
+        condition:
+          - label: if image exists
+            ctx_key: __TARGET__
+            valid: True
+            is_inverse: False
+            raise_exc: False
+
+    toolkit_image:
+      image_exists:
+        label: check image exists
+        tool: docker.image_exists
+        context_map:
+          - label: get image tag
+            result: target
+            data:
+              - source: meta.system_name
+                target: namespace
+              - source: meta.system_version
+                target: version
+            format_string: "{namespace}/toolkit:{version}"
+        result_map:
+          - label: result to __TARGET__
+            result: __TARGET__
+            data: result
+      delete_image:
+        label: delete image if exists
+        tool: docker.image_delete
+        context_map:
+          - label: get invoke image tag
+            result: target
+            data:
+              - source: meta.system_name
+                target: namespace
+              - source: meta.system_version
+                target: version
+            format_string: "{namespace}/toolkit:{version}"
+        condition:
+          - label: if image exists
+            ctx_key: __TARGET__
+            valid: True
+            is_inverse: False
+            raise_exc: False
+
+    frontend_dir:
+      label: delete frontend
+      tool: filesystem.directory_delete
+      params:
+        ignore_errors: True
+      condition:
+        - ${namespace.frontend.exists}
+      context_map:
+        - label: get frontend working directory
+          result: target
+          data: namespace.frontend.working_dir
+
+    toolkit_dir:
+      label: delete toolkit
+      tool: filesystem.directory_delete
+      params:
+        ignore_errors: True
+      condition:
+        - ${namespace.toolkit.exists}
+      context_map:
+        - label: get toolkit working directory
+          result: target
+          data: namespace.toolkit.working_dir
+
+    builder_dir:
+      label: delete builder
+      tool: filesystem.directory_delete
+      params:
+        ignore_errors: True
+      condition:
+        - ${namespace.builder.exists}
+      context_map:
+        - label: get builder working directory
+          result: target
+          data: namespace.builder.working_dir
+
+  sos_restart:
+    system:
+      down: ${action.sos_down.compose}
+      up: ${action.sos_up.compose}
+
+  download_models:
+    ollama_up: ${service.ollama.action.up}
+    ollama_pull:
+      label: pull required models
+      tool: ollama.download_models
+      context_map:
+        - label: get required model list
+          result: target
+          data: namespace.ollama_models
+    ollama_down: ${service.ollama.action.down}
+
+  set_ollama_data:
+    create_target:
+      label: generate ollama data directory
+      tool: context.ctx_set
+      condition:
+        - label: ollama_data exists
+          ctx_key: namespace.ollama_data
+          valid: null
+          is_inverse: False
+          raise_exc: False
+      params:
+        ctx_key: __TARGET__
+        overwrite: True
+      context_map:
+        - label: generate create_child target
+          result: obj
+          data:
+            - target: folder
+              source: null
+              default: ollama_data
+            - target: name
+              source: null
+              default: ollama_data
+      callbacks:
+        - ${service.local_data.action.create_child}
+        - label: set ollama service data directory
+          tool: context.ctx_set
+          params:
+            ctx_key: service.ollama.namespace.model_dir
+            overwrite: True
+          context_map:
+            - label: get model_dir
+              result: obj
+              data: service.local_data.namespace.child_map.ollama_data
+        - label: generate model_dir break
+          tool: context.runtime_break
+          context_map:
+            - label: generate info_break
+              result: info_break
+              data:
+                - target: model_dir
+                  source: service.ollama.namespace.model_dir
+              format_string: "GENERATED OLLAMA MODEL DIR: {model_dir}"
+    provided_target:
+      label: map ollama data directory
+      tool: context.ctx_set
+      condition:
+        - label: ollama_data exists
+          ctx_key: namespace.ollama_data
+          valid: null
+          is_inverse: True
+          raise_exc: False
+      params:
+        ctx_key: service.ollama.namespace.model_dir
+        overwrite: True
+      context_map:
+        - label: get ollama data_dir
+          result: obj
+          data: namespace.ollama_data
+      callbacks:
+        - label: generate model_dir break
+          tool: context.runtime_break
+          context_map:
+            - label: generate info_break
+              result: info_break
+              data:
+                - target: model_dir
+                  source: service.ollama.namespace.model_dir
+              format_string: "PROVIDED OLLAMA MODEL DIR: {model_dir}"
+
+  set_chromadb_data:
+    create_target:
+      label: generate chromadb data directory
+      tool: context.ctx_set
+      condition:
+        - label: chromadb_data exists
+          ctx_key: namespace.chromadb_data
+          valid: null
+          is_inverse: False
+          raise_exc: False
+      params:
+        ctx_key: __TARGET__
+        overwrite: True
+      context_map:
+        - label: generate create_child target
+          result: obj
+          data:
+            - target: folder
+              source: null
+              default: chromadb_data
+            - target: name
+              source: null
+              default: chromadb_data
+      callbacks:
+        - ${service.local_data.action.create_child}
+        - label: set chromadb service data directory
+          tool: context.ctx_set
+          params:
+            ctx_key: service.chromadb.namespace.data_dir
+            overwrite: True
+          context_map:
+            - label: get data_dir
+              result: obj
+              data: service.local_data.namespace.child_map.chromadb_data
+        - label: generate data_dir break
+          tool: context.runtime_break
+          context_map:
+            - label: generate info_break
+              result: info_break
+              data:
+                - target: data_dir
+                  source: service.chromadb.namespace.data_dir
+              format_string: "GENERATED CHROMADB DATA DIR: {data_dir}"
+    provided_target:
+      label: map chromadb data directory
+      tool: context.ctx_set
+      condition:
+        - label: chromadb_data exists
+          ctx_key: namespace.chromadb_data
+          valid: null
+          is_inverse: True
+          raise_exc: False
+      params:
+        ctx_key: service.chromadb.namespace.data_dir
+        overwrite: True
+        obj: namespace.chromadb_data
+      callbacks:
+        - label: generate model_dir break
+          tool: context.runtime_break
+          context_map:
+            - label: generate info_break
+              result: info_break
+              data:
+                - target: data_dir
+                  source: service.chromadb.namespace.data_dir
+              format_string: "PROVIDED CHROMADB DATA DIR: {data_dir}"
+
+  set_mongodb_data:
+    create_target:
+      label: generate mongodb data directory
+      tool: context.ctx_set
+      condition:
+        - label: mongodb_data exists
+          ctx_key: namespace.mongodb_data
+          valid: null
+          is_inverse: False
+          raise_exc: False
+      params:
+        ctx_key: __TARGET__
+        overwrite: True
+      context_map:
+        - label: generate create_child target
+          result: obj
+          data:
+            - target: folder
+              source: null
+              default: mongodb_data
+            - target: name
+              source: null
+              default: mongodb_data
+      callbacks:
+        - ${service.local_data.action.create_child}
+        - label: set mongodb service data directory
+          tool: context.ctx_set
+          params:
+            ctx_key: service.mongodb.namespace.data_dir
+            overwrite: True
+          context_map:
+            - label: get data_dir
+              result: obj
+              data: service.local_data.namespace.child_map.mongodb_data
+        - label: generate data_dir break
+          tool: context.runtime_break
+          context_map:
+            - label: generate info_break
+              result: info_break
+              data:
+                - target: data_dir
+                  source: service.mongodb.namespace.data_dir
+              format_string: "GENERATED MONGODB DATA DIR: {data_dir}"
+    provided_target:
+      label: map mongodb data directory
+      tool: context.ctx_set
+      condition:
+        - label: mongodb_data exists
+          ctx_key: namespace.mongodb_data
+          valid: null
+          is_inverse: True
+          raise_exc: False
+      params:
+        ctx_key: service.mongodb.namespace.data_dir
+        overwrite: True
+        obj: namespace.mongodb_data
+      callbacks:
+        - label: generate model_dir break
+          tool: context.runtime_break
+          context_map:
+            - label: generate info_break
+              result: info_break
+              data:
+                - target: data_dir
+                  source: service.mongodb.namespace.data_dir
+              format_string: "PROVIDED MONGODB DATA DIR: {data_dir}"
+
+hook:
+  on_context_load:
+    ollama_plugin: ${service.ollama.action.plugin}

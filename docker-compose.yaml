@@ -1,0 +1,95 @@
+networks:
+  ollama_serve:
+    external: True
+  mongodb_serve:
+    external: True
+  chromadb_serve:
+    external: True
+
+volumes:
+  vtp-synthesis_web-resources:
+    external: true
+
+services:
+  toolkit-dev:
+    image: ${SYSTEM_NAME}/toolkit:${SYSTEM_VERSION}
+    pull_policy: never
+
+    profiles:
+      - dev
+      - default
+
+    networks:
+      - ollama_serve
+      - mongodb_serve
+      - chromadb_serve
+
+    ports:
+      - ${TOOLKIT_PORT}:${TOOLKIT_PORT}
+
+    environment:
+      - OLLAMA_HOST=sos-ollama
+      - OLLAMA_PORT=${OLLAMA_PORT}
+      - CHROMADB_HOST=sos-chromadb
+      - CHROMADB_PORT=${CHROMADB_PORT}
+      - MONGODB_HOST=sos-mongodb
+      - MONGODB_PORT=${MONGODB_PORT}
+      - TOOLKIT_HOST=${TOOLKIT_HOST}
+      - TOOLKIT_PORT=${TOOLKIT_PORT}
+      - WATCHFILES_FORCE_POLLING=true
+      - AZURE_TELEMETRY_DISABLED=True
+      - PYTHONDONTWRITEBYTECODE=1
+
+    volumes:
+      - ${TOOLKIT_WORKING_DIR}:/opt/app
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${TOOLKIT_PORT}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+      start_interval: 5s
+
+  frontend-dev:
+    image: ${SYSTEM_NAME}/frontend:${SYSTEM_VERSION}
+    pull_policy: never
+
+    profiles:
+      - dev
+      - default
+
+    networks:
+      - ollama_serve
+      - mongodb_serve
+      - chromadb_serve
+
+    ports:
+      - ${FRONTEND_PORT}:30000
+      - 38000:38000
+
+    environment:
+      - OLLAMA_HOST=sos-ollama
+      - OLLAMA_PORT=${OLLAMA_PORT}
+      - CHROMADB_HOST=sos-chromadb
+      - CHROMADB_PORT=${CHROMADB_PORT}
+      - MONGODB_HOST=sos-mongodb
+      - MONGODB_PORT=${MONGODB_PORT}
+      - TOOLKIT_HOST=toolkit-dev
+      - TOOLKIT_PORT=${TOOLKIT_PORT}
+      - PYTHONDONTWRITEBYTECODE=1
+
+    volumes:
+      - vtp-synthesis_web-resources:/opt/app/.web
+      - ${FRONTEND_WORKING_DIR}:/opt/app
+
+    depends_on:
+      - toolkit-dev
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${FRONTEND_PORT}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+      start_interval: 5s
